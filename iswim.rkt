@@ -4,7 +4,7 @@
 
 (provide (all-defined-out))
 
-;;; ISWIM core
+;;; ISWIM core language
 (define-language iswim
   (e ::=
      x
@@ -70,6 +70,7 @@
   )
 
 
+;;; metafunction eval function 
 (define-metafunction iswim
   δ : e -> v
   [(δ (zero? 0)) ,λ-t]
@@ -92,9 +93,11 @@
 (define r/iswim
   (reduction-relation
    iswim #:domain e
+   ;; beta reduction
    (--> ((λ x e) v)
         (subst e x v)
         r-β)
+   ;; eval forms 
    (--> (o b ...)
         (δ (o b ...))
         r-δ)))

@@ -44,17 +44,28 @@
   (define (test:-->r/iswim/err a b)
     (test-->> -->r/iswim/err #:equiv equal? a b))
   
+
+  ;; test divide
   (test-equal (term (δ/ (/ 4 2))) (term 2))
   (test-equal (term (δ/ (/ 4 0))) (term (err 0)))
+
+  ;; progress
   (test:-->r/iswim/err (term (/ 4 2)) (term 2))
+
+  ;; fail on syntax
   (test:-->r/iswim/err
-   (term (+ 1 (+ 2 (+ 3 (λ x 1)))))
+   (term (+ 1 (+ 2 (+ 3 (λ x 1))))) 
    (term (err 2)))
+  (test:-->r/iswim/err
+   (term (+ 1 (+ 2 (+ 3 (/ 1 0)))))
+   (term (err 0)))
+
+  ;; infinite loop
   (test-->>∃ #:steps 2
              -->r/iswim/err
              Ω-comb
              Ω-comb-loop)
-  (test-results))
+  )
 
 (module+ trace:-->r/iswim/err
   (require redex)

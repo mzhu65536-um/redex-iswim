@@ -9,12 +9,15 @@
 (define-extended-language iswim/err+handler
   iswim/err
   (e ::= ....
-     (throw b)
-     (catch e with (λ x e)))
+     (throw e)                          ; why not allow reduction in [throw]?
+     (catch e (λ x e)))
+  (E ::= .... (throw E))                ; extend eval context to support [throw]
   (H ::= E
-     (catch H with (λ x e))))
+     (catch H (λ x e))))
+;;; the Redex book defined throw to be (throw b); but, I extend the definition
 
-(define error->throw                    ; throw error 
+
+(define error->throw                    ; error becomes throw 
   (reduction-relation
    iswim/err+handler
    #:domain e
@@ -24,8 +27,8 @@
 (define catch
   (reduction-relation
    iswim/err+handler
-   (--> (catch v with (λ x e)) v catch-normal)
-   (--> (catch (throw b) with (λ x e)) ((λ x e) b) catch-throw)))
+   (--> (catch v (λ x e)) v catch-normal)
+   (--> (catch (throw b) (λ x e)) ((λ x e) b) catch-throw)))
 
 ; β + δ + δ\ + catch 
 (define h/iswim/err+handler
@@ -45,11 +48,11 @@
   (reduction-relation 
    iswim/err+handler
    (--> (in-hole H
-                 (catch (in-hole E (throw b)) with
-                        (λ x e)))
+                 (catch (in-hole E (throw b)) 
+                   (λ x e)))
         (in-hole H
-                 (catch (throw b) with
-                        (λ x e)))
+                 (catch (throw b) 
+                   (λ x e)))
         (side-condition (not (hole? (term E))))
         H-catch-lift-throw)
    (--> (in-hole E (throw b)) (throw b)
@@ -68,33 +71,37 @@
   (define-syntax (test--> stx)
     (syntax-case stx ()
       [(_ a b)
-       #'(test-->> -->r/iswim/err+handler #:equiv equal? a b)]
+       #'(test-->> -->r/iswim/err+handler #:equiv equal? (term a) (term b))]
       [_ (error "illegal syntax")]))
+
   (test-->
-   (catch (catch (+ 1 (+ 2 (throw 3))) with (λ x x)) with (λ x 4))
+   (catch (catch (+ 1 (+ 2 (throw 3))) (λ x x)) (λ x 4))
    3)
-  #|
+
   (test-->
-   (catch (catch (+ 1 (/ 1 0)) with (λ x x)) with (λ x 4))
+   (catch (catch (+ 1 (/ 1 0)) (λ x x)) (λ x 4))
    0)
+
+  ;;; unsupported in Redex book: you cannot throw an exp
   (test-->
    (catch
-       (catch (+ 1 (/ 1 0)) with (λ x (throw (add1 x))))
-     with (λ x (throw (add1 x))))
+       (catch (+ 1 (/ 1 0)) (λ x (throw (add1 x))))
+     (λ x (throw (add1 x))))
    (throw 2))
+
   (test-->
    ((λ x (catch
-             (catch (+ 1 (+ x (/ 2 x))) with (λ y (add1 x)))
-           with (λ y x)))
+             (catch (+ 1 (+ x (/ 2 x))) (λ y (add1 x)))
+           (λ y x)))
     0)
    1)
   (test-->
    ((λ x (catch
-             (catch (+ 1 (+ x (/ 2 x))) with (λ y (add1 x)))
-           with (λ y x)))
+             (catch (+ 1 (+ x (/ 2 x))) (λ y (add1 x)))
+           (λ y x)))
     1)
    4)
-  |#
+
   (test-results))
 
 (module+ trace:-->r/iswim/err+handler
@@ -105,9 +112,11 @@
       [(_ tm) #'(traces -->r/iswim/err+handler (term tm))]))
   
   (traces-datum ,Ω-comb)
-  (traces-datum (catch (catch (+ 1 (+ 2 (throw 2))) with (λ x x))
-                  with (λ x (add1 x))))
-  (traces-datum (catch (/ 1 0) with (λ x (add1 x))))
+  (traces-datum
+   (catch
+       (catch (+ 1 (+ 2 (throw 2))) (λ x x))
+     (λ x (add1 x))))
+  (traces-datum (catch (/ 1 0) (λ x (add1 x))))
   (traces-datum (+ (+ 1 (+ 2 (throw 10)) 2)))
   )
 
